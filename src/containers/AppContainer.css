@@ -1,0 +1,21 @@
+/* AppContainer.css */
+.mrz-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.label {
+    margin-bottom: 0.5rem;
+}
+
+.input {
+    padding: 0.5rem;
+    font-size: 1rem;
+}
