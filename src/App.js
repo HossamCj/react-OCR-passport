@@ -1,18 +1,56 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useState} from "react";
 
 function App() {
-    let worker;
+    const [mrzData, setMRZData] = useState({});
+    const [worker, setWorker] = useState(null);
+
+    // console.log(mrzData);
 
     useEffect(() => {
-        worker = initWorker();
+        const initWorker = async () => {
+            const blob = new Blob(
+                [
+                    window.mrz_worker
+                        .toString()
+                        .replace(/^function .+\{?|\}$/g, ""),
+                ],
+                {type: "text/javascript"}
+            );
+
+            const objectURL = URL.createObjectURL(blob);
+            const workerInstance = new Worker(objectURL);
+
+            workerInstance.onmessage = (e) => {
+                const data = e.data;
+
+                if (data.type === "result") {
+                    // console.log(data.result.parsed.fields);
+                    setMRZData(data.result.parsed.fields);
+                } else if (data.type === "progress") {
+                    console.error("PROGRESS");
+                } else if (data.type === "error") {
+                    console.error("Error:", data.error);
+                }
+            };
+
+            setWorker(workerInstance);
+        };
+
+        if (!worker) {
+            initWorker();
+        }
 
         return () => {
-            worker.terminate();
+            if (worker) {
+                worker.terminate();
+                setWorker(null);
+            }
         };
-    }, []);
+    }, [worker, setMRZData, mrzData]);
 
     const handleFileChange = (e) => {
-        var reader = new FileReader();
+        const reader = new FileReader();
+
         reader.onload = function (e) {
             worker.postMessage({
                 cmd: "process",
@@ -29,47 +67,15 @@ function App() {
         <div>
             <input type="file" id="photo" onChange={handleFileChange} />
 
-            <div id="mrz-data"></div>
+            <div id="mrz-data">
+                {Object.keys(mrzData).map((field) => (
+                    <div key={field}>
+                        {field} : {mrzData[field]}
+                    </div>
+                ))}
+            </div>
         </div>
     );
-}
-
-function initWorker() {
-    const blob = new Blob(
-        [window.mrz_worker.toString().replace(/^function .+\{?|\}$/g, "")],
-        {type: "text/javascript"}
-    );
-
-    const objectURL = URL.createObjectURL(blob);
-
-    const worker = new Worker(objectURL);
-
-    worker.addEventListener("message", (e) => {
-        const data = e.data;
-
-        if (data.type === "result") {
-            console.log(data.result.parsed.fields);
-
-            if (data.result.parsed && data.result.parsed.valid) {
-                const parsed = data.result.parsed.fields;
-                const mrzDataElement = document.getElementById("mrz-data");
-
-                if (parsed) {
-                    mrzDataElement.innerHTML = Object.keys(parsed)
-                        .map(
-                            (field) => `<div>${field} : ${parsed[field]}</div>`
-                        )
-                        .join("");
-                }
-            }
-        } else if (data.type === "progress") {
-            console.error("PROGRESS");
-        } else if (data.type === "error") {
-            console.error("Error:", data.error);
-        }
-    });
-
-    return worker;
 }
 
 export default App;
